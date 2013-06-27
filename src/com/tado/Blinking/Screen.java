@@ -52,6 +52,7 @@ public class Screen {
                     break;
                 case 0:
                     black(ll);
+                    break;
             }
             state = doMode;
         }

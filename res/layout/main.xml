@@ -5,11 +5,6 @@
               android:layout_height="fill_parent"
               android:id="@+id/layout"
         >
-    <ToggleButton
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="New ToggleButton"
-            android:id="@+id/toggleButton" android:checked="false"/>
     <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -24,5 +19,18 @@
               android:id="@+id/textView1" android:layout_gravity="left|center_vertical"/>
     <EditText android:layout_width="fill_parent" android:layout_height="76dp" android:text="0,1"
               android:id="@+id/sequenceText" android:layout_gravity="center" android:maxLines="10"/>
+    <Button
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:text="Start"
+            android:id="@+id/button" android:layout_gravity="left|center_vertical"/>
+    <RadioGroup
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent" android:layout_gravity="left|center_vertical">
+        <RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Squares"
+                     android:id="@+id/rbSquares" android:layout_gravity="left|center_vertical" android:checked="true"/>
+        <RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pulses"
+                     android:id="@+id/rbPulses" android:layout_gravity="left|center_vertical" android:checked="false"/>
+    </RadioGroup>
 </LinearLayout>
 

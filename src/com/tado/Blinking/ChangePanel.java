@@ -7,6 +7,9 @@ import android.graphics.Paint;
 import android.util.Log;
 import android.view.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created with IntelliJ IDEA.
  * User: neto
@@ -20,20 +23,31 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
     public volatile long lastT = 0;
     private Integer[] sequence;
     private long sleepTime;
+    private DrawingDiffs drawClass;
+
+    private List<GestureDetector.SimpleOnGestureListener> listeners = new ArrayList<GestureDetector.SimpleOnGestureListener>();
 
     class DoubleTapDetector extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onDoubleTap(MotionEvent e) {
             Log.d("TADO", "double tap");
             thread = thread.toggle();
+
+            for(GestureDetector.SimpleOnGestureListener gl : listeners) {
+                gl.onDoubleTap(e);
+            }
+
             return true;
         }
     }
 
+    public void setListenerOnDoubleTap(GestureDetector.SimpleOnGestureListener listener) {
+        listeners.add(listener);
+    }
 
-
-
-    public ChangePanel(Context context, long sleepTime, Integer[] sequence) {
+    final public static int SQUARES = 1;
+    final public static int PULSES = 2;
+    public ChangePanel(Context context, long sleepTime, Integer[] sequence, int drawingType) {
         super(context);
 
         this.sequence = sequence;
@@ -42,6 +56,15 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
         getHolder().addCallback(this);
 
         this.setFocusable(true);
+
+        switch (drawingType) {
+            case SQUARES:
+                drawClass = new Squares();
+                break;
+            case PULSES:
+                drawClass = new Pulses();
+                break;
+        }
     }
 
 
@@ -87,29 +110,7 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
     final private int BLACK = getResources().getColor(R.color.black);
     final private int WHITE = getResources().getColor(R.color.white);
 
-    private int getColor() {
-        long timeNow = System.currentTimeMillis();
 
-        if (timeNow - lastT >= this.sleepTime) {
-            index++;
-            lastT = timeNow;
-
-            if (index > sequence.length-1) index = 0;
-        }
-        int doMode = sequence[index];
-        int res = 0;
-
-        switch(doMode) {
-            case 1:
-                res = BLACK;
-                break;
-            default:
-                res = WHITE;
-        }
-        spitTime(doMode);
-
-        return res;
-    }
 
     public void setRunning(boolean run) {
         if (run && thread == null) {
@@ -132,6 +133,111 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
     }
 
 
+    interface DrawingDiffs {
+        public void run(SurfaceHolder sh, ChangePanel panel);
+        public void onDraw(Canvas canvas);
+    }
+
+    class Squares implements DrawingDiffs {
+        public void run(SurfaceHolder sh, ChangePanel panel) {
+            Canvas c = null;
+            try {
+                c = sh.lockCanvas(null);
+                panel.onDraw(c); //draw canvas
+            } finally {
+                if (c != null) {
+                    sh.unlockCanvasAndPost(c);  //show canvas
+                }
+            }
+        }
+
+        private int getColor() {
+            long timeNow = System.currentTimeMillis();
+
+            if (timeNow - lastT >= sleepTime) {
+                index++;
+                lastT = timeNow;
+
+                if (index > sequence.length-1) index = 0;
+            }
+            int doMode = sequence[index];
+            int res = 0;
+
+            switch(doMode) {
+                case 1:
+                    res = WHITE;
+                    break;
+                default:
+                    res = BLACK;
+            }
+            spitTime(doMode);
+
+            return res;
+        }
+
+        public void onDraw(Canvas canvas) {
+            int color = getColor();
+            if (previous != color || true) {
+                canvas.drawColor(color);
+                previous = color;
+            }
+        }
+    }
+    class Pulses implements DrawingDiffs {
+        boolean pulse = false;
+
+        public void run(SurfaceHolder sh, ChangePanel panel) {
+            Canvas c = null;
+            // Draw twice for pulse
+            try {
+                c = sh.lockCanvas(null);
+                panel.onDraw(c); //draw canvas
+            } finally {
+                if (c != null) {
+                    sh.unlockCanvasAndPost(c);  //show canvas
+                }
+            }
+        }
+
+        private int getColor() {
+            long timeNow = System.currentTimeMillis();
+            // always set pulse to false, let the if bellow figure out
+            pulse = false;
+
+            if (timeNow - lastT >= sleepTime) {
+                index++;
+                lastT = timeNow;
+
+                pulse = true;
+
+                if (index > sequence.length-1) index = 0;
+            }
+            int doMode = sequence[index];
+            int res = 0;
+
+            switch(doMode) {
+                case 1:
+                    if (pulse) {
+                        res = WHITE;
+                    } else
+                        res = BLACK;
+                    break;
+                default:
+                    res = BLACK;
+            }
+            spitTime(doMode);
+
+            return res;
+        }
+
+        public void onDraw(Canvas canvas) {
+            int color = getColor();
+
+            canvas.drawColor(color);
+        }
+    }
+
+
     class CanvasThread extends Thread {
         Canvas c;
         private SurfaceHolder sh;
@@ -141,6 +247,8 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
         public CanvasThread(ChangePanel panel, SurfaceHolder sh) {
             this.sh = sh;
             this.panel = panel;
+
+            this.setPriority(Thread.MAX_PRIORITY);
         }
 
         public void setRunning(boolean run) {
@@ -164,14 +272,7 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
             shouldStop = false;
 
             while(!shouldStop) {
-                try {
-                    c = sh.lockCanvas(null);
-                    panel.onDraw(c); //draw canvas
-                } finally {
-                    if (c != null) {
-                        sh.unlockCanvasAndPost(c);  //show canvas
-                    }
-                }
+                drawClass.run(sh, panel);
             }
         }
     }
@@ -179,10 +280,6 @@ public class ChangePanel extends SurfaceView implements SurfaceHolder.Callback {
     int previous = -1;
     @Override
     public void onDraw(Canvas canvas) {
-        int color = getColor();
-        if (previous != color) {
-            canvas.drawColor(color);
-            previous = color;
-        }
+        drawClass.onDraw(canvas);
     }
 }
